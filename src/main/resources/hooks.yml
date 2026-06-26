@@ -4,7 +4,7 @@
 # if you need another plugin supported, please contact us on discord
 # Note: custom should only be used if you have a plugin that uses the API to add a custom hook
 hooks:
-  # values: Vault, PlayerPoints, CoinsEngine, RoyaleEconomy, custom
+  # values: Vault, PlayerPoints, custom
   economy-plugin: "Vault"
   # values:
   # - builtin
@@ -12,18 +12,11 @@ hooks:
   # - ShopGUIPlus
   # - Essentials
   # - EconomyShopGUI
-  # - DynamicShop
   # - ExcellentShop
-  # - CMI
   # - custom
   price-plugin: "builtin"
 
 hook-settings:
-  # economy
-  CoinsEngine:
-    currency-name: "coins"
-  ExcellentEconomy:
-    currency-name: "coins"
   # protection
   BentoBox:
     register: true
@@ -31,15 +24,9 @@ hook-settings:
     register: true
   HuskTowns:
     register: true
-  IridiumSkyBlock:
-    register: true
-  Kingdoms:
-    register: true
   Lands:
     register: true
   PlotSquared:
-    register: true
-  Residence:
     register: true
   SaberFactions:
     register: true

@@ -58,6 +58,10 @@ public class SellwandUseListener implements Listener {
         } else if (block.getState() instanceof Container) {
             contents = ((Container) block.getState()).getInventory().getContents();
         } else if (block.getType() == Material.ENDER_CHEST) {
+            if (!CONFIG.getBoolean("allow-ender-chests", false)) {
+                MESSAGEUTILS.sendLang(player, "disallowed-container");
+                return;
+            }
             contents = player.getEnderChest().getContents();
         } else {
             return; // not a container

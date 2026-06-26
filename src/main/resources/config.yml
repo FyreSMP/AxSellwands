@@ -12,6 +12,9 @@ stacking-mode: 1
 # if true: when merging two sell wands, their usage limit can go over the limit
 allow-going-over-limit: false
 
+# if true: sell wands can be used on ender chests to sell their contents
+allow-ender-chests: false
+
 number-formatting:
   # modes:
   # 0 - formatted (customizable, look at the formatted part)

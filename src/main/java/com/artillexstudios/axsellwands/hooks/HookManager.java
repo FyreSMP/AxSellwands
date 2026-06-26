@@ -3,31 +3,23 @@ package com.artillexstudios.axsellwands.hooks;
 import com.artillexstudios.axapi.reflection.ClassUtils;
 import com.artillexstudios.axapi.utils.StringUtils;
 import com.artillexstudios.axsellwands.hooks.container.ContainerHook;
-import com.artillexstudios.axsellwands.hooks.currency.CoinsEngineHook;
 import com.artillexstudios.axsellwands.hooks.currency.CurrencyHook;
-import com.artillexstudios.axsellwands.hooks.currency.ExcellentEconomyHook;
 import com.artillexstudios.axsellwands.hooks.currency.PlayerPointsHook;
-import com.artillexstudios.axsellwands.hooks.currency.RoyaleEconomyHook;
 import com.artillexstudios.axsellwands.hooks.currency.VaultHook;
 import com.artillexstudios.axsellwands.hooks.other.Placeholders;
 import com.artillexstudios.axsellwands.hooks.protection.BentoBoxHook;
 import com.artillexstudios.axsellwands.hooks.protection.GriefPreventionHook;
 import com.artillexstudios.axsellwands.hooks.protection.HuskClaimsHook;
 import com.artillexstudios.axsellwands.hooks.protection.HuskTownsHook;
-import com.artillexstudios.axsellwands.hooks.protection.IridiumSkyBlockHook;
-import com.artillexstudios.axsellwands.hooks.protection.KingdomsXHook;
 import com.artillexstudios.axsellwands.hooks.protection.LandsHook;
 import com.artillexstudios.axsellwands.hooks.protection.PlotSquaredHook;
 import com.artillexstudios.axsellwands.hooks.protection.ProtectionHook;
-import com.artillexstudios.axsellwands.hooks.protection.ResidenceHook;
 import com.artillexstudios.axsellwands.hooks.protection.SaberFactionsHook;
 import com.artillexstudios.axsellwands.hooks.protection.SuperiorSkyBlock2Hook;
 import com.artillexstudios.axsellwands.hooks.protection.TownyHook;
 import com.artillexstudios.axsellwands.hooks.protection.WorldGuardHook;
 import com.artillexstudios.axsellwands.hooks.shop.AxGensHook;
 import com.artillexstudios.axsellwands.hooks.shop.BuiltinPrices;
-import com.artillexstudios.axsellwands.hooks.shop.CMIPricesHook;
-import com.artillexstudios.axsellwands.hooks.shop.DynamicShop3Hook;
 import com.artillexstudios.axsellwands.hooks.shop.EconomyShopGuiHook;
 import com.artillexstudios.axsellwands.hooks.shop.EssentialsHook;
 import com.artillexstudios.axsellwands.hooks.shop.ExcellentShopHook;
@@ -58,11 +50,6 @@ public class HookManager {
             new Placeholders().register();
         }
 
-        if (HOOKS.getBoolean("hook-settings.IridiumSkyBlock.register", true) && Bukkit.getPluginManager().getPlugin("IridiumSkyBlock") != null) {
-            PROTECTION_HOOKS.add(new IridiumSkyBlockHook());
-            Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#33FF33[AxSellwands] Hooked into IridiumSkyBlock!"));
-        }
-
         if (HOOKS.getBoolean("hook-settings.SuperiorSkyblock2.register", true) && Bukkit.getPluginManager().getPlugin("SuperiorSkyblock2") != null) {
             PROTECTION_HOOKS.add(new SuperiorSkyBlock2Hook());
             Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#33FF33[AxSellwands] Hooked into SuperiorSkyblock2!"));
@@ -71,11 +58,6 @@ public class HookManager {
         if (HOOKS.getBoolean("hook-settings.WorldGuard.register", true) && Bukkit.getPluginManager().getPlugin("WorldGuard") != null) {
             PROTECTION_HOOKS.add(new WorldGuardHook());
             Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#33FF33[AxSellwands] Hooked into WorldGuard!"));
-        }
-
-        if (HOOKS.getBoolean("hook-settings.Kingdoms.register", true) && Bukkit.getPluginManager().getPlugin("Kingdoms") != null) {
-            PROTECTION_HOOKS.add(new KingdomsXHook());
-            Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#33FF33[AxSellwands] Hooked into Kingdoms!"));
         }
 
         if (HOOKS.getBoolean("hook-settings.BentoBox.register", true) && Bukkit.getPluginManager().getPlugin("BentoBox") != null) {
@@ -91,11 +73,6 @@ public class HookManager {
         if (HOOKS.getBoolean("hook-settings.Lands.register", true) && Bukkit.getPluginManager().getPlugin("Lands") != null) {
             PROTECTION_HOOKS.add(new LandsHook());
             Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#33FF33[AxSellwands] Hooked into Lands!"));
-        }
-
-        if (HOOKS.getBoolean("hook-settings.Residence.register", true) && Bukkit.getPluginManager().getPlugin("Residence") != null) {
-            PROTECTION_HOOKS.add(new ResidenceHook());
-            Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#33FF33[AxSellwands] Hooked into Residence!"));
         }
 
         if (HOOKS.getBoolean("hook-settings.PlotSquared.register", true) && Bukkit.getPluginManager().getPlugin("PlotSquared") != null) {
@@ -146,36 +123,6 @@ public class HookManager {
                 }
                 break;
             }
-
-            case "COINSENGINE": {
-                if (Bukkit.getPluginManager().getPlugin("CoinsEngine") != null) {
-                    currency = new CoinsEngineHook();
-                    Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#33FF33[AxSellwands] Hooked into CoinsEngine!"));
-                } else {
-                    Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#FF3333[AxSellwands] CoinsEngine is set in hooks.yml, but it is not installed, please download it or change it to stop errors!"));
-                }
-                break;
-            }
-
-            case "EXCELLENTECONOMY": {
-                if (Bukkit.getPluginManager().getPlugin("CoinsEngine") != null || Bukkit.getPluginManager().getPlugin("ExcellentEconomy") != null) {
-                    currency = new ExcellentEconomyHook();
-                    Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#33FF33[AxSellwands] Hooked into ExcellentEconomy!"));
-                } else {
-                    Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#FF3333[AxSellwands] ExcellentEconomy is set in hooks.yml, but it is not installed, please download it or change it to stop errors!"));
-                }
-                break;
-            }
-
-            case "ROYALEECONOMY": {
-                if (Bukkit.getPluginManager().getPlugin("RoyaleEconomy") != null) {
-                    currency = new RoyaleEconomyHook();
-                    Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#33FF33[AxSellwands] Hooked into RoyaleEconomy!"));
-                } else {
-                    Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#FF3333[AxSellwands] RoyaleEconomy is set in hooks.yml, but it is not installed, please download it or change it to stop errors!"));
-                }
-                break;
-            }
         }
         if (currency != null)
             currency.setup();
@@ -212,32 +159,12 @@ public class HookManager {
                 break;
             }
 
-            case "CMI": {
-                if (Bukkit.getPluginManager().getPlugin("CMI") != null) {
-                    shopPrices = new CMIPricesHook();
-                    Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#33FF33[AxSellwands] Hooked into CMI (prices)!"));
-                } else {
-                    Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#FF3333[AxSellwands] CMI is set in hooks.yml, but it is not installed, please download it or change it to stop errors!"));
-                }
-                break;
-            }
-
             case "ECONOMYSHOPGUI": {
                 if (Bukkit.getPluginManager().getPlugin("EconomyShopGUI") != null || Bukkit.getPluginManager().getPlugin("EconomyShopGUI-Premium") != null) {
                     shopPrices = new EconomyShopGuiHook();
                     Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#33FF33[AxSellwands] Hooked into EconomyShopGUI!"));
                 } else {
                     Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#FF3333[AxSellwands] EconomyShopGUI is set in hooks.yml, but it is not installed, please download it or change it to stop errors!"));
-                }
-                break;
-            }
-
-            case "DYNAMICSHOP": {
-                if (Bukkit.getPluginManager().getPlugin("DynamicShop") != null) {
-                    shopPrices = new DynamicShop3Hook();
-                    Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#33FF33[AxSellwands] Hooked into DynamicShop!"));
-                } else {
-                    Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#FF3333[AxSellwands] DynamicShop is set in hooks.yml, but it is not installed, please download it or change it to stop errors!"));
                 }
                 break;
             }
