@@ -13,18 +13,17 @@ import com.artillexstudios.axsellwands.sellwands.Sellwands;
 import com.artillexstudios.axsellwands.utils.HistoryUtils;
 import com.artillexstudios.axsellwands.utils.HologramUtils;
 import com.artillexstudios.axsellwands.utils.NumberUtils;
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.Particle;
-import org.bukkit.Sound;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.Container;
+import org.bukkit.block.ShulkerBox;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BlockStateMeta;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collections;
@@ -32,9 +31,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import static com.artillexstudios.axsellwands.AxSellwands.CONFIG;
-import static com.artillexstudios.axsellwands.AxSellwands.LANG;
-import static com.artillexstudios.axsellwands.AxSellwands.MESSAGEUTILS;
+import static com.artillexstudios.axsellwands.AxSellwands.*;
 
 public class SellwandUseListener implements Listener {
 
@@ -97,22 +94,12 @@ public class SellwandUseListener implements Listener {
 
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             Map<Material, Integer> items = new HashMap<>();
+            SellAccumulator acc = new SellAccumulator(items);
             for (ItemStack it : contents) {
-                if (it == null) continue;
-                double price = HookManager.getShopPrices().getPrice(player, it);
-                if (price <= 0) continue;
-                price *= multiplier;
-
-                newSoldPrice += price;
-                newSoldAmount += it.getAmount();
-
-                if (items.containsKey(it.getType()))
-                    items.put(it.getType(), items.get(it.getType()) + it.getAmount());
-                else
-                    items.put(it.getType(), it.getAmount());
-
-                it.setAmount(0);
+                processItem(player, it, multiplier, true, acc);
             }
+            newSoldPrice = acc.price;
+            newSoldAmount = acc.amount;
 
             if (newSoldAmount <= 0 || newSoldPrice <= 0) {
                 MESSAGEUTILS.sendLang(player, "nothing-sold");
@@ -200,15 +187,12 @@ public class SellwandUseListener implements Listener {
 
             if (block.getState() instanceof Container container) container.update();
         } else {
+            SellAccumulator acc = new SellAccumulator(null);
             for (ItemStack it : contents) {
-                if (it == null) continue;
-                double price = HookManager.getShopPrices().getPrice(player, it);
-                if (price == -1.0D) continue;
-                price *= multiplier;
-
-                newSoldPrice += price;
-                newSoldAmount += it.getAmount();
+                processItem(player, it, multiplier, false, acc);
             }
+            newSoldPrice = acc.price;
+            newSoldAmount = acc.amount;
 
             if (newSoldAmount <= 0 || newSoldPrice <= 0) {
                 MESSAGEUTILS.sendLang(player, "nothing-sold");
@@ -237,5 +221,47 @@ public class SellwandUseListener implements Listener {
                 player.spawnParticle(Particle.valueOf(LANG.getString("particles.inspect")), block.getLocation().add(0.5, 0.5, 0.5), 30, 0.5, 0.5, 0.5);
             }
         }
+    }
+
+    // Accumulates the total price/amount sold (and, when selling, the per-material tally used for history).
+    private static final class SellAccumulator {
+        private double price = 0;
+        private int amount = 0;
+        private final Map<Material, Integer> items;
+
+        private SellAccumulator(Map<Material, Integer> items) {
+            this.items = items;
+        }
+    }
+
+    private static void processItem(@NotNull Player player, ItemStack it, float multiplier, boolean sell, @NotNull SellAccumulator acc) {
+        if (it == null) return;
+
+        if (multiplier == 1f && Tag.SHULKER_BOXES.isTagged(it.getType()) && it.getItemMeta() instanceof BlockStateMeta bsMeta && bsMeta.getBlockState() instanceof ShulkerBox shulker) {
+            var boxInventory = shulker.getInventory();
+            ItemStack[] inner = boxInventory.getContents();
+            int amountBefore = acc.amount;
+            for (ItemStack innerItem : inner) {
+                processItem(player, innerItem, multiplier, sell, acc);
+            }
+
+            if (sell && acc.amount != amountBefore) {
+                boxInventory.setContents(inner);
+                bsMeta.setBlockState(shulker);
+                it.setItemMeta(bsMeta);
+            }
+            return;
+        }
+
+        double price = HookManager.getShopPrices().getPrice(player, it);
+
+        if (sell ? price <= 0 : price == -1.0D) return;
+        price *= multiplier;
+
+        acc.price += price;
+        acc.amount += it.getAmount();
+        if (acc.items != null) acc.items.merge(it.getType(), it.getAmount(), Integer::sum);
+
+        if (sell) it.setAmount(0);
     }
 }
