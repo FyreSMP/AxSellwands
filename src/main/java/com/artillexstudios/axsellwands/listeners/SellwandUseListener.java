@@ -48,6 +48,13 @@ public class SellwandUseListener implements Listener {
         if (sellwand == null) return;
         Player player = event.getPlayer();
 
+        Long expiresAt = wrapper.getLong("axsellwands-expires-at");
+        if (expiresAt != null && System.currentTimeMillis() >= expiresAt) {
+            event.getItem().setAmount(0);
+            MESSAGEUTILS.sendLang(player, "sellwand-expired");
+            return;
+        }
+
         ItemStack[] contents;
         ContainerHook containerHook = HookManager.getContainerAt(player, block);
         if (containerHook != null) {

@@ -45,6 +45,10 @@ public enum Give {
         wrapper.set("axsellwands-sold-amount", 0);
         wrapper.set("axsellwands-sold-price", 0D);
 
+        if (sellwand.getExpireMillis() != -1) {
+            wrapper.set("axsellwands-expires-at", System.currentTimeMillis() + sellwand.getExpireMillis());
+        }
+
         int am = 1;
         if (amount != null) am = amount;
 

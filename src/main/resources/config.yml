@@ -47,6 +47,19 @@ hologram:
 # 0 used to be the default in vanilla minecraft until 1.13
 minimum-durability: 1
 
+# controls how expiring sellwands (see "expire-seconds" in a sellwand's
+# config) are checked on online players. players are split evenly across
+# partitions and only one partition is scanned per interval, cycling
+# round-robin - this spreads the inventory-scanning cost over time instead
+# of checking every online player at once
+wand-expiry:
+  # how many partitions should online players be split into?
+  partitions: 20
+  # how often (in seconds) should the next partition be checked?
+  # with the defaults, each player gets checked roughly once every
+  # (partitions * interval-seconds) = 100 seconds while online
+  interval-seconds: 5
+
 # should be plugin notify you if there is a new update?
 update-notifier:
   # if enabled, it will display the message in the console
@@ -55,4 +68,4 @@ update-notifier:
   on-join: true
 
 # do not change this
-version: 6
+version: 7

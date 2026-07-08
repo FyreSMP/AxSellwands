@@ -1,0 +1,37 @@
+# DOCUMENTATION: https://docs.artillex-studios.com/axsellwands.html
+# ITEM BUILDER: https://docs.artillex-studios.com/item-builder.html
+
+name: "&#55FF55Temporary Sellwand"
+
+item:
+  material: STICK
+  glow: true
+  name: "&#55FF55&lsᴇʟʟᴡᴀɴᴅ &7(100%)"
+  lore:
+    - ""
+    - "&#55FF55ɪɴғᴏ"
+    - " &8❙ &fMultiplier: &#55FF55%multiplier%x"
+    - " &8❙ &fExpires: &#55FF55&l12 hours &fafter being given"
+    - ""
+    - "&#55FF55sᴛᴀᴛs"
+    - " &8❙ &fSold items: &#55FF55%sold-amount%"
+    - " &8❙ &fMoney made: &#55FF55%sold-price%$"
+    - ""
+    - "&#55FF55&l> &#55FF55Left Click &8- &#55FF55Inspect"
+    - "&#55FF55&l> &#55FF55Right Click &8- &#55FF55Sell"
+
+# 1.0 is 100%, 1.5 is 150% and so on...
+multiplier: 1.0
+
+# this wand has unlimited uses for as long as it exists, since
+# "uses" is replaced by the "expire-seconds" timer below
+uses: -1
+
+# how many seconds after being given should this sellwand delete itself?
+# set to -1 to disable and fall back to the "uses" limit above
+# examples: 30 minutes = 1800, 1 hour = 3600, 12 hours = 43200, 1 day = 86400
+expire-seconds: 43200
+
+# how often should the player be able to sell
+# set to 0 to disable
+cooldown-milliseconds: 0

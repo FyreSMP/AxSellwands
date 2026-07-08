@@ -16,6 +16,7 @@ public class Sellwand {
     private final float multiplier;
     private final int uses;
     private final long cooldown;
+    private final long expireMillis;
     private final Section itemSection;
     private final HashSet<Material> disallowed = new HashSet<>();
     private final HashSet<Material> allowed = new HashSet<>();
@@ -35,6 +36,10 @@ public class Sellwand {
         this.multiplier = file.getFloat("multiplier", 1f);
         this.uses = file.getInt("uses", -1);
         this.cooldown = file.getLong("cooldown-milliseconds", 0);
+
+        long expireSeconds = file.getLong("expire-seconds", -1);
+        this.expireMillis = expireSeconds == -1 ? -1 : expireSeconds * 1000L;
+
         this.itemSection = file.getSection("item");
 
         for (String str : file.getStringList("disallowed-containers")) {
@@ -78,6 +83,10 @@ public class Sellwand {
 
     public long getCooldown() {
         return cooldown;
+    }
+
+    public long getExpireMillis() {
+        return expireMillis;
     }
 
     public Section getItemSection() {
