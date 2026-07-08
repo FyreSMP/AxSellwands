@@ -22,6 +22,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.jetbrains.annotations.NotNull;
@@ -29,14 +30,18 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.artillexstudios.axsellwands.AxSellwands.*;
 
 public class SellwandUseListener implements Listener {
+    private static final Set<UUID> processing = ConcurrentHashMap.newKeySet();
 
     @EventHandler(ignoreCancelled = true)
     public void onInteract(@NotNull PlayerInteractEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND) return;
         if (event.getItem() == null) return;
         Block block = event.getClickedBlock();
         if (block == null) return;
@@ -48,185 +53,191 @@ public class SellwandUseListener implements Listener {
         if (sellwand == null) return;
         Player player = event.getPlayer();
 
-        Long expiresAt = wrapper.getLong("axsellwands-expires-at");
-        if (expiresAt != null && System.currentTimeMillis() >= expiresAt) {
-            event.getItem().setAmount(0);
-            MESSAGEUTILS.sendLang(player, "sellwand-expired");
-            return;
-        }
+        if (!processing.add(player.getUniqueId())) return;
+        try {
+            Long expiresAt = wrapper.getLong("axsellwands-expires-at");
+            if (expiresAt != null && System.currentTimeMillis() >= expiresAt) {
+                event.getItem().setAmount(0);
+                MESSAGEUTILS.sendLang(player, "sellwand-expired");
+                return;
+            }
 
-        ItemStack[] contents;
-        ContainerHook containerHook = HookManager.getContainerAt(player, block);
-        if (containerHook != null) {
-            contents = containerHook.getItems(player, block).toArray(new ItemStack[0]);
-        } else if (block.getState() instanceof Container) {
-            contents = ((Container) block.getState()).getInventory().getContents();
-        } else if (block.getType() == Material.ENDER_CHEST) {
-            if (!CONFIG.getBoolean("allow-ender-chests", false)) {
+            ItemStack[] contents;
+            ContainerHook containerHook = HookManager.getContainerAt(player, block);
+            if (containerHook != null) {
+                contents = containerHook.getItems(player, block).toArray(new ItemStack[0]);
+            } else if (block.getState() instanceof Container) {
+                contents = ((Container) block.getState()).getInventory().getContents();
+            } else if (block.getType() == Material.ENDER_CHEST) {
+                if (!CONFIG.getBoolean("allow-ender-chests", false)) {
+                    MESSAGEUTILS.sendLang(player, "disallowed-container");
+                    return;
+                }
+                contents = player.getEnderChest().getContents();
+            } else {
+                return; // not a container
+            }
+
+            boolean hasBypass = player.hasPermission("axsellwands.admin");
+
+            if (!hasBypass && !HookManager.canBuildAt(player, block.getLocation())) {
+                MESSAGEUTILS.sendLang(player, "no-permission");
+                return;
+            }
+
+            if (sellwand.getDisallowed().contains(block.getType()) || (!sellwand.getAllowed().isEmpty() && !sellwand.getAllowed().contains(block.getType()))) {
                 MESSAGEUTILS.sendLang(player, "disallowed-container");
                 return;
             }
-            contents = player.getEnderChest().getContents();
-        } else {
-            return; // not a container
-        }
 
-        boolean hasBypass = player.hasPermission("axsellwands.admin");
-
-        if (!hasBypass && !HookManager.canBuildAt(player, block.getLocation())) {
-            MESSAGEUTILS.sendLang(player, "no-permission");
-            return;
-        }
-
-        if (sellwand.getDisallowed().contains(block.getType()) || (!sellwand.getAllowed().isEmpty() && !sellwand.getAllowed().contains(block.getType()))) {
-            MESSAGEUTILS.sendLang(player, "disallowed-container");
-            return;
-        }
-
-        Long lastUsed = wrapper.getLong("axsellwands-lastused");
-        if (lastUsed != null && System.currentTimeMillis() - lastUsed < sellwand.getCooldown() && event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            MESSAGEUTILS.sendLang(player, "cooldown", Collections.singletonMap("%time%", Long.toString(Math.round((sellwand.getCooldown() - System.currentTimeMillis() + lastUsed) / 1000D))));
-            return;
-        }
-
-        UUID uuid = wrapper.getUUID("axsellwands-uuid");
-        float multiplier = wrapper.getFloatOr("axsellwands-multiplier", 1);
-        int uses = wrapper.getIntOr("axsellwands-uses", -1);
-        int maxUses = wrapper.getIntOr("axsellwands-max-uses", -1);
-        int soldAmount = wrapper.getIntOr("axsellwands-sold-amount", 0);
-        double soldPrice = wrapper.getDoubleOr("axsellwands-sold-price", 0);
-
-        int newSoldAmount = 0;
-        double newSoldPrice = 0;
-
-        if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            Map<Material, Integer> items = new HashMap<>();
-            SellAccumulator acc = new SellAccumulator(items);
-            for (ItemStack it : contents) {
-                processItem(player, it, multiplier, true, acc);
-            }
-            newSoldPrice = acc.price;
-            newSoldAmount = acc.amount;
-
-            if (newSoldAmount <= 0 || newSoldPrice <= 0) {
-                MESSAGEUTILS.sendLang(player, "nothing-sold");
+            Long lastUsed = wrapper.getLong("axsellwands-lastused");
+            if (lastUsed != null && System.currentTimeMillis() - lastUsed < sellwand.getCooldown() && event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+                MESSAGEUTILS.sendLang(player, "cooldown", Collections.singletonMap("%time%", Long.toString(Math.round((sellwand.getCooldown() - System.currentTimeMillis() + lastUsed) / 1000D))));
                 return;
             }
 
-            AxSellwandsSellEvent apiEvent = new AxSellwandsSellEvent(player, newSoldPrice, newSoldAmount);
-            Bukkit.getPluginManager().callEvent(apiEvent);
-            if (apiEvent.isCancelled()) return;
-            newSoldPrice = apiEvent.getMoneyMade();
+            UUID uuid = wrapper.getUUID("axsellwands-uuid");
+            float multiplier = wrapper.getFloatOr("axsellwands-multiplier", 1);
+            int uses = wrapper.getIntOr("axsellwands-uses", -1);
+            int maxUses = wrapper.getIntOr("axsellwands-max-uses", -1);
+            int soldAmount = wrapper.getIntOr("axsellwands-sold-amount", 0);
+            double soldPrice = wrapper.getDoubleOr("axsellwands-sold-price", 0);
 
-            StringBuilder str = new StringBuilder("[");
-            boolean first = true;
-            for (Map.Entry<Material, Integer> e : items.entrySet()) {
-                if (!first) str.append(", ");
-                first = false;
-                str.append(e.getValue()).append("x ").append(e.getKey().name());
-            }
-            str.append("]");
-            HistoryUtils.writeToHistory(String.format("%s sold %dx items %s and earned %s (multiplier: %s, uses: %d)", player.getName(), newSoldAmount, str, newSoldPrice, multiplier, uses - 1));
+            int newSoldAmount = 0;
+            double newSoldPrice = 0;
 
-            HashMap<String, String> replacements = new HashMap<>();
-            replacements.put("%amount%", "" + newSoldAmount);
-            replacements.put("%price%", NumberUtils.formatNumber(newSoldPrice));
+            if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+                Map<Material, Integer> items = new HashMap<>();
+                SellAccumulator acc = new SellAccumulator(items);
+                for (ItemStack it : contents) {
+                    processItem(player, it, multiplier, true, acc);
+                }
+                newSoldPrice = acc.price;
+                newSoldAmount = acc.amount;
 
-            HookManager.getCurrency().giveBalance(player, newSoldPrice);
-
-            if (CONFIG.getBoolean("hologram.enabled", true)) {
-                HologramUtils.spawnHologram(player, block.getLocation().add(0.5, 0.5, 0.5), replacements);
-            }
-
-            MESSAGEUTILS.sendLang(player, "sell.chat", replacements);
-
-            if (!LANG.getString("sell.actionbar", "").isBlank()) {
-                ActionBar.create(StringUtils.format(LANG.getString("sell.actionbar"), replacements)).send(player);
-            }
-
-            if (LANG.getSection("sell.title") != null && !LANG.getString("sell.title.title").isBlank()) {
-                Title.create(
-                        StringUtils.format(LANG.getString("sell.title.title"), replacements),
-                        StringUtils.format(LANG.getString("sell.title.subtitle"), replacements), 10, 40, 10
-                ).send(player);
-            }
-
-
-            if (!LANG.getString("sounds.sell").isEmpty()) {
-                player.playSound(player.getLocation(), Sound.valueOf(LANG.getString("sounds.sell")), 1f, 1f);
-            }
-
-            if (!LANG.getString("particles.sell").isEmpty()) {
-                player.spawnParticle(Particle.valueOf(LANG.getString("particles.sell")), block.getLocation().add(0.5, 0.5, 0.5), 30, 0.5, 0.5, 0.5);
-            }
-
-            if (uses != -1) {
-                uses--;
-
-                if (uses < CONFIG.getInt("minimum-durability", 1)) {
-                    event.getItem().setAmount(0);
+                if (newSoldAmount <= 0 || newSoldPrice <= 0) {
+                    MESSAGEUTILS.sendLang(player, "nothing-sold");
                     return;
                 }
+
+                AxSellwandsSellEvent apiEvent = new AxSellwandsSellEvent(player, newSoldPrice, newSoldAmount);
+                Bukkit.getPluginManager().callEvent(apiEvent);
+                if (apiEvent.isCancelled()) return;
+                newSoldPrice = apiEvent.getMoneyMade();
+
+                StringBuilder str = new StringBuilder("[");
+                boolean first = true;
+                for (Map.Entry<Material, Integer> e : items.entrySet()) {
+                    if (!first) str.append(", ");
+                    first = false;
+                    str.append(e.getValue()).append("x ").append(e.getKey().name());
+                }
+                str.append("]");
+                int usesConsumed = 1 + acc.shulkersSold;
+                HistoryUtils.writeToHistory(String.format("%s sold %dx items %s and earned %s (multiplier: %s, uses: %d)", player.getName(), newSoldAmount, str, newSoldPrice, multiplier, uses - usesConsumed));
+
+                HashMap<String, String> replacements = new HashMap<>();
+                replacements.put("%amount%", "" + newSoldAmount);
+                replacements.put("%price%", NumberUtils.formatNumber(newSoldPrice));
+
+                HookManager.getCurrency().giveBalance(player, newSoldPrice);
+
+                if (CONFIG.getBoolean("hologram.enabled", true)) {
+                    HologramUtils.spawnHologram(player, block.getLocation().add(0.5, 0.5, 0.5), replacements);
+                }
+
+                MESSAGEUTILS.sendLang(player, "sell.chat", replacements);
+
+                if (!LANG.getString("sell.actionbar", "").isBlank()) {
+                    ActionBar.create(StringUtils.format(LANG.getString("sell.actionbar"), replacements)).send(player);
+                }
+
+                if (LANG.getSection("sell.title") != null && !LANG.getString("sell.title.title").isBlank()) {
+                    Title.create(
+                            StringUtils.format(LANG.getString("sell.title.title"), replacements),
+                            StringUtils.format(LANG.getString("sell.title.subtitle"), replacements), 10, 40, 10
+                    ).send(player);
+                }
+
+
+                if (!LANG.getString("sounds.sell").isEmpty()) {
+                    player.playSound(player.getLocation(), Sound.valueOf(LANG.getString("sounds.sell")), 1f, 1f);
+                }
+
+                if (!LANG.getString("particles.sell").isEmpty()) {
+                    player.spawnParticle(Particle.valueOf(LANG.getString("particles.sell")), block.getLocation().add(0.5, 0.5, 0.5), 30, 0.5, 0.5, 0.5);
+                }
+
+                if (uses != -1) {
+                    uses -= usesConsumed;
+
+                    if (uses < CONFIG.getInt("minimum-durability", 1)) {
+                        event.getItem().setAmount(0);
+                        return;
+                    }
+                }
+
+                replacements.clear();
+                replacements.put("%multiplier%", "" + multiplier);
+                replacements.put("%uses%", "" + (uses == -1 ? LANG.getString("unlimited", "∞") : uses));
+                replacements.put("%max-uses%", "" + (maxUses == -1 ? LANG.getString("unlimited", "∞") : maxUses));
+                replacements.put("%sold-amount%", "" + (soldAmount + newSoldAmount));
+                replacements.put("%sold-price%", NumberUtils.formatNumber(soldPrice + newSoldPrice));
+
+                Sellwand wand = Sellwands.getSellwands().get(type);
+                ItemBuilder builder = ItemBuilder.create(wand.getItemSection(), replacements);
+
+                event.getItem().setItemMeta(builder.get().getItemMeta());
+
+                wrapper = new NBTWrapper(event.getItem());
+                wrapper.set("axsellwands-uuid", uuid);
+                wrapper.set("axsellwands-uses", uses);
+                wrapper.set("axsellwands-lastused", System.currentTimeMillis());
+                wrapper.set("axsellwands-sold-amount", soldAmount + newSoldAmount);
+                wrapper.set("axsellwands-sold-price", soldPrice + newSoldPrice);
+                wrapper.set("axsellwands-type", type);
+                wrapper.set("axsellwands-multiplier", multiplier);
+                wrapper.set("axsellwands-max-uses", maxUses);
+                wrapper.build();
+
+                if (block.getState() instanceof Container container) container.update();
+            } else {
+                SellAccumulator acc = new SellAccumulator(null);
+                for (ItemStack it : contents) {
+                    processItem(player, it, multiplier, false, acc);
+                }
+                newSoldPrice = acc.price;
+                newSoldAmount = acc.amount;
+
+                if (newSoldAmount <= 0 || newSoldPrice <= 0) {
+                    MESSAGEUTILS.sendLang(player, "nothing-sold");
+                    return;
+                }
+
+                HashMap<String, String> replacements = new HashMap<>();
+                replacements.put("%amount%", "" + newSoldAmount);
+                replacements.put("%price%", NumberUtils.formatNumber(newSoldPrice));
+
+                MESSAGEUTILS.sendLang(player, "inspect.chat", replacements);
+
+                if (!LANG.getString("inspect.actionbar", "").isBlank()) {
+                    ActionBar.create(StringUtils.format(LANG.getString("inspect.actionbar"), replacements)).send(player);
+                }
+
+                if (LANG.getSection("inspect.title") != null && !LANG.getString("inspect.title.title").isBlank())
+                    Title.create(StringUtils.format(LANG.getString("inspect.title.title"), replacements),
+                            StringUtils.format(LANG.getString("inspect.title.subtitle"), replacements), 10, 40, 10).send(player);
+
+                if (!LANG.getString("sounds.inspect").isEmpty()) {
+                    player.playSound(player.getLocation(), Sound.valueOf(LANG.getString("sounds.inspect")), 1f, 1f);
+                }
+
+                if (!LANG.getString("particles.inspect").isEmpty()) {
+                    player.spawnParticle(Particle.valueOf(LANG.getString("particles.inspect")), block.getLocation().add(0.5, 0.5, 0.5), 30, 0.5, 0.5, 0.5);
+                }
             }
-
-            replacements.clear();
-            replacements.put("%multiplier%", "" + multiplier);
-            replacements.put("%uses%", "" + (uses == -1 ? LANG.getString("unlimited", "∞") : uses));
-            replacements.put("%max-uses%", "" + (maxUses == -1 ? LANG.getString("unlimited", "∞") : maxUses));
-            replacements.put("%sold-amount%", "" + (soldAmount + newSoldAmount));
-            replacements.put("%sold-price%", NumberUtils.formatNumber(soldPrice + newSoldPrice));
-
-            Sellwand wand = Sellwands.getSellwands().get(type);
-            ItemBuilder builder = ItemBuilder.create(wand.getItemSection(), replacements);
-
-            event.getItem().setItemMeta(builder.get().getItemMeta());
-
-            wrapper = new NBTWrapper(event.getItem());
-            wrapper.set("axsellwands-uuid", uuid);
-            wrapper.set("axsellwands-uses", uses);
-            wrapper.set("axsellwands-lastused", System.currentTimeMillis());
-            wrapper.set("axsellwands-sold-amount", soldAmount + newSoldAmount);
-            wrapper.set("axsellwands-sold-price", soldPrice + newSoldPrice);
-            wrapper.set("axsellwands-type", type);
-            wrapper.set("axsellwands-multiplier", multiplier);
-            wrapper.set("axsellwands-max-uses", maxUses);
-            wrapper.build();
-
-            if (block.getState() instanceof Container container) container.update();
-        } else {
-            SellAccumulator acc = new SellAccumulator(null);
-            for (ItemStack it : contents) {
-                processItem(player, it, multiplier, false, acc);
-            }
-            newSoldPrice = acc.price;
-            newSoldAmount = acc.amount;
-
-            if (newSoldAmount <= 0 || newSoldPrice <= 0) {
-                MESSAGEUTILS.sendLang(player, "nothing-sold");
-                return;
-            }
-
-            HashMap<String, String> replacements = new HashMap<>();
-            replacements.put("%amount%", "" + newSoldAmount);
-            replacements.put("%price%", NumberUtils.formatNumber(newSoldPrice));
-
-            MESSAGEUTILS.sendLang(player, "inspect.chat", replacements);
-
-            if (!LANG.getString("inspect.actionbar", "").isBlank()) {
-                ActionBar.create(StringUtils.format(LANG.getString("inspect.actionbar"), replacements)).send(player);
-            }
-
-            if (LANG.getSection("inspect.title") != null && !LANG.getString("inspect.title.title").isBlank())
-                Title.create(StringUtils.format(LANG.getString("inspect.title.title"), replacements),
-                        StringUtils.format(LANG.getString("inspect.title.subtitle"), replacements), 10, 40, 10).send(player);
-
-            if (!LANG.getString("sounds.inspect").isEmpty()) {
-                player.playSound(player.getLocation(), Sound.valueOf(LANG.getString("sounds.inspect")), 1f, 1f);
-            }
-
-            if (!LANG.getString("particles.inspect").isEmpty()) {
-                player.spawnParticle(Particle.valueOf(LANG.getString("particles.inspect")), block.getLocation().add(0.5, 0.5, 0.5), 30, 0.5, 0.5, 0.5);
-            }
+        } finally {
+            processing.remove(player.getUniqueId());
         }
     }
 
@@ -234,6 +245,9 @@ public class SellwandUseListener implements Listener {
     private static final class SellAccumulator {
         private double price = 0;
         private int amount = 0;
+        // number of shulker boxes that had their contents sold - each one consumes an extra use
+        // on top of the base use for the chest itself
+        private int shulkersSold = 0;
         private final Map<Material, Integer> items;
 
         private SellAccumulator(Map<Material, Integer> items) {
@@ -244,7 +258,7 @@ public class SellwandUseListener implements Listener {
     private static void processItem(@NotNull Player player, ItemStack it, float multiplier, boolean sell, @NotNull SellAccumulator acc) {
         if (it == null) return;
 
-        if (multiplier == 1f && Tag.SHULKER_BOXES.isTagged(it.getType()) && it.getItemMeta() instanceof BlockStateMeta bsMeta && bsMeta.getBlockState() instanceof ShulkerBox shulker) {
+        if (Tag.SHULKER_BOXES.isTagged(it.getType()) && it.getItemMeta() instanceof BlockStateMeta bsMeta && bsMeta.getBlockState() instanceof ShulkerBox shulker) {
             var boxInventory = shulker.getInventory();
             ItemStack[] inner = boxInventory.getContents();
             int amountBefore = acc.amount;
@@ -252,12 +266,17 @@ public class SellwandUseListener implements Listener {
                 processItem(player, innerItem, multiplier, sell, acc);
             }
 
-            if (sell && acc.amount != amountBefore) {
-                boxInventory.setContents(inner);
-                bsMeta.setBlockState(shulker);
-                it.setItemMeta(bsMeta);
+            if (acc.amount != amountBefore) {
+                if (sell) {
+                    boxInventory.setContents(inner);
+                    bsMeta.setBlockState(shulker);
+                    it.setItemMeta(bsMeta);
+                    acc.shulkersSold++;
+                }
+                return;
             }
-            return;
+            // nothing inside was priceable (e.g. an empty box) - fall through and
+            // try pricing the shulker box item itself instead of reporting nothing
         }
 
         double price = HookManager.getShopPrices().getPrice(player, it);
