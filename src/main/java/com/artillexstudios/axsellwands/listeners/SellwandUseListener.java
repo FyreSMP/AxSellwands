@@ -32,9 +32,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import static com.artillexstudios.axsellwands.AxSellwands.CONFIG;
-import static com.artillexstudios.axsellwands.AxSellwands.LANG;
-import static com.artillexstudios.axsellwands.AxSellwands.MESSAGEUTILS;
+import static com.artillexstudios.axsellwands.AxSellwands.*;
 
 public class SellwandUseListener implements Listener {
 
@@ -50,6 +48,13 @@ public class SellwandUseListener implements Listener {
         event.setCancelled(true);
         if (sellwand == null) return;
         Player player = event.getPlayer();
+
+        Long expiresAt = wrapper.getLong("axsellwands-expires-at");
+        if (expiresAt != null && System.currentTimeMillis() >= expiresAt) {
+            event.getItem().setAmount(0);
+            MESSAGEUTILS.sendLang(player, "sellwand-expired");
+            return;
+        }
 
         ItemStack[] contents;
         ContainerHook containerHook = HookManager.getContainerAt(player, block);

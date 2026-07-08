@@ -24,6 +24,8 @@ no-permission: "&#FFAA55You don't have a permission to use a sellwand on this co
 
 disallowed-container: "&#FFAA55This sellwand can't be used on this type of container!"
 
+sellwand-expired: "&#FFAA55One of your sellwands has expired and was removed from your inventory!"
+
 # list of sounds: https://hub.spigotmc.org/javadocs/bukkit/org/bukkit/Sound.html
 # set to "" to mute
 sounds:
@@ -77,4 +79,4 @@ commands:
 update-notifier: "&#FFAA00There is a new version of AxSellwands available! &#DDDDDD(&#FFFFFFcurrent: &#FF0000%current% &#DDDDDD| &#FFFFFFlatest: &#00FF00%latest%&#DDDDDD)"
 
 # do not change this
-version: 4
+version: 5
