@@ -59,6 +59,11 @@ wand-expiry:
   # with the defaults, each player gets checked roughly once every
   # (partitions * interval-seconds) = 100 seconds while online
   interval-seconds: 5
+  # should the %time-left% placeholder in a sellwand's lore be re-rendered as it counts down?
+  # a wand carried by a player refreshes on the same schedule as the expiry check above, and
+  # whenever they select it on their hotbar; a wand stored in a container refreshes whenever
+  # that container is opened
+  update-lore: true
 
 # should be plugin notify you if there is a new update?
 update-notifier:
@@ -68,4 +73,4 @@ update-notifier:
   on-join: true
 
 # do not change this
-version: 7
+version: 8

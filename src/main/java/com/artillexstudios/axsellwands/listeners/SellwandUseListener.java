@@ -2,13 +2,14 @@ package com.artillexstudios.axsellwands.listeners;
 
 import com.artillexstudios.axapi.items.NBTWrapper;
 import com.artillexstudios.axapi.utils.ActionBar;
-import com.artillexstudios.axapi.utils.ItemBuilder;
 import com.artillexstudios.axapi.utils.StringUtils;
 import com.artillexstudios.axapi.utils.Title;
 import com.artillexstudios.axsellwands.api.events.AxSellwandsSellEvent;
 import com.artillexstudios.axsellwands.hooks.HookManager;
 import com.artillexstudios.axsellwands.hooks.container.ContainerHook;
 import com.artillexstudios.axsellwands.sellwands.Sellwand;
+import com.artillexstudios.axsellwands.sellwands.SellwandRenderer;
+import com.artillexstudios.axsellwands.sellwands.SellwandState;
 import com.artillexstudios.axsellwands.sellwands.Sellwands;
 import com.artillexstudios.axsellwands.utils.HistoryUtils;
 import com.artillexstudios.axsellwands.utils.HologramUtils;
@@ -177,28 +178,10 @@ public class SellwandUseListener implements Listener {
                     }
                 }
 
-                replacements.clear();
-                replacements.put("%multiplier%", "" + multiplier);
-                replacements.put("%uses%", "" + (uses == -1 ? LANG.getString("unlimited", "∞") : uses));
-                replacements.put("%max-uses%", "" + (maxUses == -1 ? LANG.getString("unlimited", "∞") : maxUses));
-                replacements.put("%sold-amount%", "" + (soldAmount + newSoldAmount));
-                replacements.put("%sold-price%", NumberUtils.formatNumber(soldPrice + newSoldPrice));
-
-                Sellwand wand = Sellwands.getSellwands().get(type);
-                ItemBuilder builder = ItemBuilder.create(wand.getItemSection(), replacements);
-
-                event.getItem().setItemMeta(builder.get().getItemMeta());
-
-                wrapper = new NBTWrapper(event.getItem());
-                wrapper.set("axsellwands-uuid", uuid);
-                wrapper.set("axsellwands-uses", uses);
-                wrapper.set("axsellwands-lastused", System.currentTimeMillis());
-                wrapper.set("axsellwands-sold-amount", soldAmount + newSoldAmount);
-                wrapper.set("axsellwands-sold-price", soldPrice + newSoldPrice);
-                wrapper.set("axsellwands-type", type);
-                wrapper.set("axsellwands-multiplier", multiplier);
-                wrapper.set("axsellwands-max-uses", maxUses);
-                wrapper.build();
+                SellwandState state = new SellwandState(type, uuid, multiplier, System.currentTimeMillis(), uses,
+                        maxUses, soldAmount + newSoldAmount, soldPrice + newSoldPrice,
+                        expiresAt == null ? SellwandRenderer.NO_EXPIRY : expiresAt);
+                SellwandRenderer.render(event.getItem(), sellwand, state);
 
                 if (block.getState() instanceof Container container) container.update();
             } else {

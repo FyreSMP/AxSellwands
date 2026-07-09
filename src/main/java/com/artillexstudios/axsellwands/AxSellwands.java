@@ -17,6 +17,7 @@ import com.artillexstudios.axsellwands.listeners.CraftListener;
 import com.artillexstudios.axsellwands.listeners.InventoryClickListener;
 import com.artillexstudios.axsellwands.listeners.SellwandUseListener;
 import com.artillexstudios.axsellwands.listeners.WandExpiryListener;
+import com.artillexstudios.axsellwands.listeners.WandLoreListener;
 import com.artillexstudios.axsellwands.sellwands.Sellwands;
 import com.artillexstudios.axsellwands.utils.FileUtils;
 import com.artillexstudios.axsellwands.utils.NumberUtils;
@@ -69,6 +70,7 @@ public final class AxSellwands extends AxPlugin {
         getServer().getPluginManager().registerEvents(new CraftListener(), this);
         getServer().getPluginManager().registerEvents(new InventoryClickListener(), this);
         getServer().getPluginManager().registerEvents(new WandExpiryListener(), this);
+        getServer().getPluginManager().registerEvents(new WandLoreListener(), this);
         WandExpiryListener.init();
 
         Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#FF5500[AxSellwands] Loaded plugin!"));

@@ -1,22 +1,21 @@
 package com.artillexstudios.axsellwands.commands.subcommands;
 
-import com.artillexstudios.axapi.items.NBTWrapper;
 import com.artillexstudios.axapi.utils.ContainerUtils;
 import com.artillexstudios.axapi.utils.ItemBuilder;
 import com.artillexstudios.axsellwands.sellwands.Sellwand;
+import com.artillexstudios.axsellwands.sellwands.SellwandRenderer;
+import com.artillexstudios.axsellwands.sellwands.SellwandState;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import static com.artillexstudios.axsellwands.AxSellwands.CONFIG;
-import static com.artillexstudios.axsellwands.AxSellwands.LANG;
 import static com.artillexstudios.axsellwands.AxSellwands.MESSAGEUTILS;
 
 public enum Give {
@@ -25,37 +24,23 @@ public enum Give {
     public void execute(CommandSender sender, Player player, @NotNull Sellwand sellwand, @Nullable Integer amount) {
         float multiplier = sellwand.getMultiplier();
         int uses = sellwand.getUses();
+        long expiresAt = sellwand.getExpireMillis() == SellwandRenderer.NO_EXPIRY
+                ? SellwandRenderer.NO_EXPIRY
+                : System.currentTimeMillis() + sellwand.getExpireMillis();
 
-        Map<String, String> replacements = new HashMap<>();
-        replacements.put("%multiplier%", "" + multiplier);
-        replacements.put("%uses%", "" + (uses == -1 ? LANG.getString("unlimited", "∞") : uses));
-        replacements.put("%max-uses%", "" + (uses == -1 ? LANG.getString("unlimited", "∞") : uses));
-        replacements.put("%sold-amount%", "" + 0);
-        replacements.put("%sold-price%", "" + 0);
+        SellwandState state = new SellwandState(sellwand.getId(), null, multiplier, 0L, uses, uses, 0, 0D, expiresAt);
+        Map<String, String> replacements = SellwandRenderer.placeholders(sellwand, state);
 
-        ItemBuilder builder = ItemBuilder.create(sellwand.getItemSection(), replacements);
-        ItemStack it = builder.get();
-
-        NBTWrapper wrapper = new NBTWrapper(it);
-        wrapper.set("axsellwands-type", sellwand.getId());
-        wrapper.set("axsellwands-multiplier", multiplier);
-        wrapper.set("axsellwands-lastused", 0L);
-        wrapper.set("axsellwands-uses", uses);
-        wrapper.set("axsellwands-max-uses", uses);
-        wrapper.set("axsellwands-sold-amount", 0);
-        wrapper.set("axsellwands-sold-price", 0D);
-
-        if (sellwand.getExpireMillis() != -1) {
-            wrapper.set("axsellwands-expires-at", System.currentTimeMillis() + sellwand.getExpireMillis());
-        }
+        ItemStack it = ItemBuilder.create(sellwand.getItemSection(), replacements).get();
 
         int am = 1;
         if (amount != null) am = amount;
 
         for (int i = 0; i < am; i++) {
-            if (CONFIG.getInt("stacking-mode", 0) != 2) wrapper.set("axsellwands-uuid", UUID.randomUUID());
-            wrapper.build();
-            ContainerUtils.INSTANCE.addOrDrop(player.getInventory(), List.of(it.clone()), player.getLocation());
+            UUID uuid = CONFIG.getInt("stacking-mode", 0) != 2 ? UUID.randomUUID() : null;
+            ItemStack copy = it.clone();
+            SellwandRenderer.render(copy, sellwand, new SellwandState(sellwand.getId(), uuid, multiplier, 0L, uses, uses, 0, 0D, expiresAt));
+            ContainerUtils.INSTANCE.addOrDrop(player.getInventory(), List.of(copy), player.getLocation());
         }
 
         replacements.put("%amount%", "" + am);

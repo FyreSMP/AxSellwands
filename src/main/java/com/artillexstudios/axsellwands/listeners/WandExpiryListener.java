@@ -2,6 +2,7 @@ package com.artillexstudios.axsellwands.listeners;
 
 import com.artillexstudios.axapi.items.NBTWrapper;
 import com.artillexstudios.axapi.scheduler.Scheduler;
+import com.artillexstudios.axsellwands.sellwands.SellwandRenderer;
 import com.artillexstudios.axsellwands.utils.bucket.Bucket;
 import com.artillexstudios.axsellwands.utils.bucket.BucketFactory;
 import com.artillexstudios.axsellwands.utils.bucket.BucketPartition;
@@ -20,10 +21,12 @@ import static com.artillexstudios.axsellwands.AxSellwands.CONFIG;
 import static com.artillexstudios.axsellwands.AxSellwands.MESSAGEUTILS;
 
 /**
- * Checks online players for expired sellwands. Instead of scanning every online
- * player's inventory on every tick, players are split into partitions and only
- * one partition is scanned per tick, cycling round-robin - spreading the cost
- * out over time instead of spiking it once per interval.
+ * Checks online players for expired sellwands, and re-renders the %time-left% lore of the ones
+ * still ticking down. Instead of scanning every online player's inventory on every tick, players
+ * are split into partitions and only one partition is scanned per tick, cycling round-robin,
+ * spreading the cost out over time instead of spiking it once per interval.
+ *
+ * <p>A carried wand's lore therefore refreshes once per {@code partitions * interval-seconds}.
  */
 public class WandExpiryListener implements Listener {
     private static Bucket<UUID> tickBuckets;
@@ -62,17 +65,34 @@ public class WandExpiryListener implements Listener {
         });
     }
 
+    /**
+     * Whether expiring sellwands should have their %time-left% lore kept current.
+     * Read per call so a config reload takes effect without a restart.
+     */
+    public static boolean updateLore() {
+        return CONFIG.getBoolean("wand-expiry.update-lore", true);
+    }
+
     public static void sweep(Player player) {
+        boolean updateLore = updateLore();
         boolean removedAny = false;
+        boolean rerendered = false;
 
         for (ItemStack item : player.getInventory().getContents()) {
             if (removeIfExpired(item)) removedAny = true;
+            else if (updateLore && SellwandRenderer.refreshExpiring(item)) rerendered = true;
         }
 
-        if (removeIfExpired(player.getInventory().getItemInOffHand())) removedAny = true;
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+        if (removeIfExpired(offHand)) removedAny = true;
+        else if (updateLore && SellwandRenderer.refreshExpiring(offHand)) rerendered = true;
 
         if (removedAny) {
             MESSAGEUTILS.sendLang(player, "sellwand-expired");
+        }
+
+        if (removedAny || rerendered) {
+            player.updateInventory();
         }
     }
 

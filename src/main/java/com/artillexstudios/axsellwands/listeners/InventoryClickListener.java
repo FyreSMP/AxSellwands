@@ -2,10 +2,9 @@ package com.artillexstudios.axsellwands.listeners;
 
 import com.artillexstudios.axapi.items.NBTWrapper;
 import com.artillexstudios.axapi.utils.Cooldown;
-import com.artillexstudios.axapi.utils.ItemBuilder;
-import com.artillexstudios.axsellwands.sellwands.Sellwand;
+import com.artillexstudios.axsellwands.sellwands.SellwandRenderer;
+import com.artillexstudios.axsellwands.sellwands.SellwandState;
 import com.artillexstudios.axsellwands.sellwands.Sellwands;
-import com.artillexstudios.axsellwands.utils.NumberUtils;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -14,11 +13,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
 import java.util.UUID;
 
 import static com.artillexstudios.axsellwands.AxSellwands.CONFIG;
-import static com.artillexstudios.axsellwands.AxSellwands.LANG;
 import static com.artillexstudios.axsellwands.AxSellwands.MESSAGEUTILS;
 
 public class InventoryClickListener implements Listener {
@@ -82,30 +79,22 @@ public class InventoryClickListener implements Listener {
         int newSoldAmount = soldAmount1 + soldAmount2;
         double newSoldPrice = soldPrice1 + soldPrice2;
 
-        HashMap<String, String> replacements = new HashMap<>();
-        replacements.put("%multiplier%", "" + multiplier1);
-        replacements.put("%uses%", "" + (newUses == -1 ? LANG.getString("unlimited", "∞") : newUses));
-        replacements.put("%max-uses%", "" + (newMax == -1 ? LANG.getString("unlimited", "∞") : newMax));
-        replacements.put("%sold-amount%", "" + (newSoldAmount));
-        replacements.put("%sold-price%", NumberUtils.formatNumber(newSoldPrice));
+        long newExpiresAt = mergeExpiry(
+                wrapperCurrent.getLongOr("axsellwands-expires-at", SellwandRenderer.NO_EXPIRY),
+                wrapperCursor.getLongOr("axsellwands-expires-at", SellwandRenderer.NO_EXPIRY));
 
-        Sellwand wand = Sellwands.getSellwands().get(type1);
-        ItemBuilder builder = ItemBuilder.create(wand.getItemSection(), replacements);
-
-        event.getCurrentItem().setItemMeta(builder.get().getItemMeta());
-
-        NBTWrapper wrapper = new NBTWrapper(event.getCurrentItem());
-        wrapper.set("axsellwands-uuid", uuid1);
-        wrapper.set("axsellwands-uses", newUses);
-        wrapper.set("axsellwands-max-uses", newMax);
-        wrapper.set("axsellwands-sold-amount", newSoldAmount);
-        wrapper.set("axsellwands-sold-price", newSoldPrice);
-        wrapper.set("axsellwands-lastused", System.currentTimeMillis());
-        wrapper.set("axsellwands-type", type1);
-        wrapper.set("axsellwands-multiplier", multiplier1);
-        wrapper.build();
+        SellwandState state = new SellwandState(type1, uuid1, multiplier1, System.currentTimeMillis(), newUses, newMax,
+                newSoldAmount, newSoldPrice, newExpiresAt);
+        SellwandRenderer.render(event.getCurrentItem(), Sellwands.getSellwands().get(type1), state);
 
         MESSAGEUTILS.sendLang(player, "stack.success");
         event.getCursor().setAmount(0);
+    }
+
+    private static long mergeExpiry(long first, long second) {
+        if (first == SellwandRenderer.NO_EXPIRY || second == SellwandRenderer.NO_EXPIRY) {
+            return SellwandRenderer.NO_EXPIRY;
+        }
+        return Math.max(first, second);
     }
 }

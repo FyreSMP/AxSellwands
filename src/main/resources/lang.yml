@@ -26,6 +26,21 @@ disallowed-container: "&#FFAA55This sellwand can't be used on this type of conta
 
 sellwand-expired: "&#FFAA55One of your sellwands has expired and was removed from your inventory!"
 
+# how the %max-time% and %time-left% sellwand lore placeholders are rendered
+# both show the two largest non-zero units, for example "12h 30m"
+time:
+  # shown by %time-left% once a sellwand's timer has run out
+  expired: "Expired"
+  # shown by both placeholders for sellwands that never expire
+  never: "∞"
+  # %value% is replaced with the amount of that unit
+  day: "%value%d"
+  hour: "%value%h"
+  minute: "%value%m"
+  second: "%value%s"
+  # placed between the two units
+  separator: " "
+
 # list of sounds: https://hub.spigotmc.org/javadocs/bukkit/org/bukkit/Sound.html
 # set to "" to mute
 sounds:
@@ -79,4 +94,4 @@ commands:
 update-notifier: "&#FFAA00There is a new version of AxSellwands available! &#DDDDDD(&#FFFFFFcurrent: &#FF0000%current% &#DDDDDD| &#FFFFFFlatest: &#00FF00%latest%&#DDDDDD)"
 
 # do not change this
-version: 5
+version: 6
