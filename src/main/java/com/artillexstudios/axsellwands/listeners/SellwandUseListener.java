@@ -64,11 +64,13 @@ public class SellwandUseListener implements Listener {
             }
 
             ItemStack[] contents;
+            Container container = null;
             ContainerHook containerHook = HookManager.getContainerAt(player, block);
             if (containerHook != null) {
                 contents = containerHook.getItems(player, block).toArray(new ItemStack[0]);
-            } else if (block.getState() instanceof Container) {
-                contents = ((Container) block.getState()).getInventory().getContents();
+            } else if (block.getState() instanceof Container blockContainer) {
+                container = blockContainer;
+                contents = container.getInventory().getContents();
             } else if (block.getType() == Material.ENDER_CHEST) {
                 if (!CONFIG.getBoolean("allow-ender-chests", false)) {
                     MESSAGEUTILS.sendLang(player, "disallowed-container");
@@ -109,7 +111,8 @@ public class SellwandUseListener implements Listener {
 
             if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
                 Map<Material, Integer> items = new HashMap<>();
-                SellAccumulator acc = new SellAccumulator(items);
+                int maxShulkers = uses == -1 ? -1 : Math.max(0, uses - 1);
+                SellAccumulator acc = new SellAccumulator(items, maxShulkers);
                 for (ItemStack it : contents) {
                     processItem(player, it, multiplier, true, acc);
                 }
@@ -134,7 +137,7 @@ public class SellwandUseListener implements Listener {
                     str.append(e.getValue()).append("x ").append(e.getKey().name());
                 }
                 str.append("]");
-                int usesConsumed = 1 + acc.shulkersSold;
+                int usesConsumed = 1 + (acc.nonShulkerSold ? acc.shulkersSold : 0);
                 HistoryUtils.writeToHistory(String.format("%s sold %dx items %s and earned %s (multiplier: %s, uses: %d)", player.getName(), newSoldAmount, str, newSoldPrice, multiplier, uses - usesConsumed));
 
                 HashMap<String, String> replacements = new HashMap<>();
@@ -183,9 +186,9 @@ public class SellwandUseListener implements Listener {
                         expiresAt == null ? SellwandRenderer.NO_EXPIRY : expiresAt);
                 SellwandRenderer.render(event.getItem(), sellwand, state);
 
-                if (block.getState() instanceof Container container) container.update();
+                if (container != null) container.update();
             } else {
-                SellAccumulator acc = new SellAccumulator(null);
+                SellAccumulator acc = new SellAccumulator(null, -1);
                 for (ItemStack it : contents) {
                     processItem(player, it, multiplier, false, acc);
                 }
@@ -229,12 +232,20 @@ public class SellwandUseListener implements Listener {
         private double price = 0;
         private int amount = 0;
         // number of shulker boxes that had their contents sold - each one consumes an extra use
-        // on top of the base use for the chest itself
+        // on top of the base use for the chest itself, but only if the chest also had sellable
+        // items outside of shulkers - a chest containing only shulkers costs a single use
         private int shulkersSold = 0;
+        private boolean nonShulkerSold = false;
+        // recursion depth into shulker contents - 0 means the item being processed is
+        // directly in the chest, not inside a shulker box
+        private int shulkerDepth = 0;
+        // max number of shulker boxes that may be sold given the sellwand's remaining uses; -1 = unlimited
+        private final int maxShulkers;
         private final Map<Material, Integer> items;
 
-        private SellAccumulator(Map<Material, Integer> items) {
+        private SellAccumulator(Map<Material, Integer> items, int maxShulkers) {
             this.items = items;
+            this.maxShulkers = maxShulkers;
         }
     }
 
@@ -242,12 +253,16 @@ public class SellwandUseListener implements Listener {
         if (it == null) return;
 
         if (Tag.SHULKER_BOXES.isTagged(it.getType()) && it.getItemMeta() instanceof BlockStateMeta bsMeta && bsMeta.getBlockState() instanceof ShulkerBox shulker) {
+            if (sell && acc.maxShulkers != -1 && acc.shulkersSold >= acc.maxShulkers) return;
+
             var boxInventory = shulker.getInventory();
             ItemStack[] inner = boxInventory.getContents();
             int amountBefore = acc.amount;
+            acc.shulkerDepth++;
             for (ItemStack innerItem : inner) {
                 processItem(player, innerItem, multiplier, sell, acc);
             }
+            acc.shulkerDepth--;
 
             if (acc.amount != amountBefore) {
                 if (sell) {
@@ -270,6 +285,7 @@ public class SellwandUseListener implements Listener {
         acc.price += price;
         acc.amount += it.getAmount();
         if (acc.items != null) acc.items.merge(it.getType(), it.getAmount(), Integer::sum);
+        if (acc.shulkerDepth == 0) acc.nonShulkerSold = true;
 
         if (sell) it.setAmount(0);
     }
