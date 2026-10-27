@@ -13,15 +13,13 @@ import com.artillexstudios.axapi.utils.StringUtils;
 import com.artillexstudios.axapi.utils.featureflags.FeatureFlags;
 import com.artillexstudios.axsellwands.commands.CommandManager;
 import com.artillexstudios.axsellwands.hooks.HookManager;
-import com.artillexstudios.axsellwands.listeners.CraftListener;
-import com.artillexstudios.axsellwands.listeners.InventoryClickListener;
-import com.artillexstudios.axsellwands.listeners.SellwandUseListener;
-import com.artillexstudios.axsellwands.listeners.WandExpiryListener;
-import com.artillexstudios.axsellwands.listeners.WandLoreListener;
+import com.artillexstudios.axsellwands.listeners.*;
 import com.artillexstudios.axsellwands.sellwands.Sellwands;
 import com.artillexstudios.axsellwands.utils.FileUtils;
 import com.artillexstudios.axsellwands.utils.NumberUtils;
+import com.artillexstudios.axsellwands.utils.TimeUtils;
 import com.artillexstudios.axsellwands.utils.UpdateNotifier;
+import com.github.retrooper.packetevents.PacketEvents;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 
@@ -35,6 +33,7 @@ public final class AxSellwands extends AxPlugin {
     private static AxPlugin instance;
     //    private static ThreadedQueue<Runnable> threadedQueue;
     private static AxMetrics metrics;
+    private static volatile SellwandPacketListener packetListener;
 
 //    public static ThreadedQueue<Runnable> getThreadedQueue() {
 //        return threadedQueue;
@@ -42,6 +41,15 @@ public final class AxSellwands extends AxPlugin {
 
     public static AxPlugin getInstance() {
         return instance;
+    }
+
+    /**
+     * @return whether PacketEvents is hooked, and so whether resending an item shows a newer
+     * countdown. Callers check this before touching {@link SellwandPacketListener}, which cannot
+     * load without PacketEvents.
+     */
+    public static boolean hasDisplayRefresh() {
+        return packetListener != null;
     }
 
     public void enable() {
@@ -59,6 +67,7 @@ public final class AxSellwands extends AxPlugin {
 
         HookManager.setupHooks();
         NumberUtils.reload();
+        TimeUtils.reload();
         CommandManager.load();
 
         if (FileUtils.PLUGIN_DIRECTORY.resolve("sellwands/").toFile().mkdirs()) {
@@ -70,8 +79,9 @@ public final class AxSellwands extends AxPlugin {
         getServer().getPluginManager().registerEvents(new CraftListener(), this);
         getServer().getPluginManager().registerEvents(new InventoryClickListener(), this);
         getServer().getPluginManager().registerEvents(new WandExpiryListener(), this);
-        getServer().getPluginManager().registerEvents(new WandLoreListener(), this);
         WandExpiryListener.init();
+
+        registerDisplayRefresh();
 
         Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#FF5500[AxSellwands] Loaded plugin!"));
 
@@ -83,7 +93,36 @@ public final class AxSellwands extends AxPlugin {
     }
 
     public void disable() {
+        SellwandPacketListener listener = packetListener;
+        if (listener != null) {
+            packetListener = null;
+            if (PacketEvents.getAPI() != null) {
+                listener.unregister();
+            }
+        }
         if (metrics != null) metrics.cancel();
+    }
+
+    /**
+     * Hooks PacketEvents so expiring sellwands count down in whatever menu shows them. Without it
+     * a wand still expires on time and still renders when it is given, used or stacked, but the
+     * countdown on a wand sitting in a menu stands still. The alternative, rewriting the item
+     * wherever it is found, is what used to break other plugins' menus, so there is no fallback.
+     */
+    private void registerDisplayRefresh() {
+        if (!getServer().getPluginManager().isPluginEnabled("packetevents") || PacketEvents.getAPI() == null) {
+            getLogger().warning("PacketEvents is not installed, so expiring sellwand lore will not count down while it is on screen.");
+            return;
+        }
+
+        try {
+            SellwandPacketListener listener = new SellwandPacketListener();
+            listener.register();
+            packetListener = listener;
+        } catch (LinkageError | RuntimeException ex) {
+            packetListener = null;
+            getLogger().warning("Could not hook PacketEvents, expiring sellwand lore will not count down while it is on screen: " + ex.getMessage());
+        }
     }
 
     public void updateFlags() {

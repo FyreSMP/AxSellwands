@@ -96,6 +96,10 @@
             <url>https://repo.codemc.org/repository/maven-public/</url>
         </repository>
         <repository>
+            <id>codemc-releases</id>
+            <url>https://repo.codemc.io/repository/maven-releases/</url>
+        </repository>
+        <repository>
             <id>essentials-releases</id>
             <url>https://repo.essentialsx.net/releases/</url>
         </repository>
@@ -150,6 +154,12 @@
             <version>2.1.0-DEV-32</version>
             <scope>compile</scope>
             <classifier>all</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.github.retrooper</groupId>
+            <artifactId>packetevents-spigot</artifactId>
+            <version>2.11.2</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.bstats</groupId>

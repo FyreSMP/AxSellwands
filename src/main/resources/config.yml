@@ -59,10 +59,11 @@ wand-expiry:
   # with the defaults, each player gets checked roughly once every
   # (partitions * interval-seconds) = 100 seconds while online
   interval-seconds: 5
-  # should the %time-left% placeholder in a sellwand's lore be re-rendered as it counts down?
-  # a wand carried by a player refreshes on the same schedule as the expiry check above, and
-  # whenever they select it on their hotbar; a wand stored in a container refreshes whenever
-  # that container is opened
+  # should the %time-left% placeholder keep counting down in a menu the player is already
+  # looking at? when enabled, their wands are resent on the same schedule as the expiry
+  # check above. the wand in their hand is skipped so it does not bob, and catches up the
+  # next time it is out of hand. the placeholder is always current when the item is first
+  # shown, so turning this off only means an open menu keeps the time it was opened with
   update-lore: true
 
 # should be plugin notify you if there is a new update?

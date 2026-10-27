@@ -28,11 +28,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.artillexstudios.axsellwands.AxSellwands.*;
@@ -109,7 +105,7 @@ public class SellwandUseListener implements Listener {
 
             if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
                 Map<Material, Integer> items = new HashMap<>();
-                SellAccumulator acc = new SellAccumulator(items);
+                SellAccumulator acc = new SellAccumulator(items, uses == -1 ? -1 : Math.max(0, uses - CONFIG.getInt("minimum-durability", 1) + 1));
                 for (ItemStack it : contents) {
                     processItem(player, it, multiplier, true, acc);
                 }
@@ -134,7 +130,7 @@ public class SellwandUseListener implements Listener {
                     str.append(e.getValue()).append("x ").append(e.getKey().name());
                 }
                 str.append("]");
-                int usesConsumed = 1 + acc.shulkersSold;
+                int usesConsumed = acc.stacksSold;
                 HistoryUtils.writeToHistory(String.format("%s sold %dx items %s and earned %s (multiplier: %s, uses: %d)", player.getName(), newSoldAmount, str, newSoldPrice, multiplier, uses - usesConsumed));
 
                 HashMap<String, String> replacements = new HashMap<>();
@@ -185,7 +181,7 @@ public class SellwandUseListener implements Listener {
 
                 if (block.getState() instanceof Container container) container.update();
             } else {
-                SellAccumulator acc = new SellAccumulator(null);
+                SellAccumulator acc = new SellAccumulator(null, -1);
                 for (ItemStack it : contents) {
                     processItem(player, it, multiplier, false, acc);
                 }
@@ -228,18 +224,21 @@ public class SellwandUseListener implements Listener {
     private static final class SellAccumulator {
         private double price = 0;
         private int amount = 0;
-        // number of shulker boxes that had their contents sold - each one consumes an extra use
-        // on top of the base use for the chest itself
-        private int shulkersSold = 0;
+        private int stacksSold = 0;
+        private final int maxStacks;
         private final Map<Material, Integer> items;
 
-        private SellAccumulator(Map<Material, Integer> items) {
+        private SellAccumulator(Map<Material, Integer> items, int maxStacks) {
             this.items = items;
+            this.maxStacks = maxStacks;
         }
     }
 
     private static void processItem(@NotNull Player player, ItemStack it, float multiplier, boolean sell, @NotNull SellAccumulator acc) {
         if (it == null) return;
+        if (sell && acc.maxStacks != -1 && acc.stacksSold >= acc.maxStacks) {
+            return;
+        }
 
         if (Tag.SHULKER_BOXES.isTagged(it.getType()) && it.getItemMeta() instanceof BlockStateMeta bsMeta && bsMeta.getBlockState() instanceof ShulkerBox shulker) {
             var boxInventory = shulker.getInventory();
@@ -254,7 +253,6 @@ public class SellwandUseListener implements Listener {
                     boxInventory.setContents(inner);
                     bsMeta.setBlockState(shulker);
                     it.setItemMeta(bsMeta);
-                    acc.shulkersSold++;
                 }
                 return;
             }
@@ -269,6 +267,7 @@ public class SellwandUseListener implements Listener {
 
         acc.price += price;
         acc.amount += it.getAmount();
+        acc.stacksSold++;
         if (acc.items != null) acc.items.merge(it.getType(), it.getAmount(), Integer::sum);
 
         if (sell) it.setAmount(0);

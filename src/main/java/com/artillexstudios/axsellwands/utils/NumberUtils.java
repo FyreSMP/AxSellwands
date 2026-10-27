@@ -7,7 +7,7 @@ import java.util.Locale;
 import static com.artillexstudios.axsellwands.AxSellwands.CONFIG;
 
 public class NumberUtils {
-    private static NumberFormat formatter = new DecimalFormat(CONFIG.getString("number-formatting.formatted", "#,###.##"));
+    private static volatile NumberFormat formatter = new DecimalFormat(CONFIG.getString("number-formatting.formatted", "#,###.##"));
 
     public static void reload() {
         int mode = CONFIG.getInt("number-formatting.mode", 0);
@@ -21,7 +21,19 @@ public class NumberUtils {
         }
     }
 
+    /**
+     * Formats a number for display. Sellwand lore is rendered on packet threads as well as server
+     * threads, and a {@link NumberFormat} keeps parsing state between calls, so one formatter
+     * cannot serve two callers at once.
+     */
     public static String formatNumber(double number) {
-        return formatter == null ? "" + number : formatter.format(number);
+        NumberFormat current = formatter;
+        if (current == null) {
+            return "" + number;
+        }
+
+        synchronized (current) {
+            return current.format(number);
+        }
     }
 }

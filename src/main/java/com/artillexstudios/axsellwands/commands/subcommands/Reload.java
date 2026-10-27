@@ -3,15 +3,13 @@ package com.artillexstudios.axsellwands.commands.subcommands;
 import com.artillexstudios.axapi.utils.StringUtils;
 import com.artillexstudios.axsellwands.hooks.HookManager;
 import com.artillexstudios.axsellwands.utils.NumberUtils;
+import com.artillexstudios.axsellwands.utils.TimeUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 
 import java.util.Map;
 
-import static com.artillexstudios.axsellwands.AxSellwands.CONFIG;
-import static com.artillexstudios.axsellwands.AxSellwands.HOOKS;
-import static com.artillexstudios.axsellwands.AxSellwands.LANG;
-import static com.artillexstudios.axsellwands.AxSellwands.MESSAGEUTILS;
+import static com.artillexstudios.axsellwands.AxSellwands.*;
 
 public enum Reload {
     INSTANCE;
@@ -41,6 +39,7 @@ public enum Reload {
 
         HookManager.updateHooks();
         NumberUtils.reload();
+        TimeUtils.reload();
 
         Bukkit.getConsoleSender().sendMessage(StringUtils.formatToString("&#FF5500╚ &#FFEEAASuccessful reload!"));
         MESSAGEUTILS.sendLang(sender, "reload.success");

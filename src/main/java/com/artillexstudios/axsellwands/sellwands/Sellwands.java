@@ -4,10 +4,12 @@ import com.artillexstudios.axapi.config.Config;
 import com.artillexstudios.axsellwands.AxSellwands;
 
 import java.io.File;
-import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Sellwands {
-    private static final HashMap<String, Sellwand> sellwands = new HashMap<>();
+    private static final Map<String, Sellwand> sellwands = new ConcurrentHashMap<>();
+    private static volatile boolean timedDisplay;
 
     public static void reload() {
         sellwands.clear();
@@ -24,9 +26,23 @@ public class Sellwands {
                 sellwands.put(id, sellwand);
             }
         }
+
+        timedDisplay = sellwands.values().stream().anyMatch(Sellwand::hasTimedDisplay);
     }
 
-    public static HashMap<String, Sellwand> getSellwands() {
+    /**
+     * @return whether any loaded sellwand counts down in its name or lore, so packets that could
+     * only show sellwands without one are passed through without being decoded
+     */
+    public static boolean hasTimedDisplay() {
+        return timedDisplay;
+    }
+
+    /**
+     * The loaded sellwands, read from packet threads as well as server threads, so the map is
+     * concurrent. A reader during a reload sees either definition, never a broken map.
+     */
+    public static Map<String, Sellwand> getSellwands() {
         return sellwands;
     }
 }
